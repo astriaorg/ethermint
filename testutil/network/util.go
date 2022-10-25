@@ -7,18 +7,18 @@ import (
 	"path/filepath"
 	"time"
 
+	abcicli "github.com/tendermint/tendermint/abci/client"
 	pvm "github.com/tendermint/tendermint/privval"
 
-	opticonf "github.com/celestiaorg/optimint/config"
-	opticonv "github.com/celestiaorg/optimint/conv"
-	optinode "github.com/celestiaorg/optimint/node"
-	rpcclient "github.com/celestiaorg/optimint/rpc/client"
+	opticonf "github.com/celestiaorg/rollmint/config"
+	opticonv "github.com/celestiaorg/rollmint/conv"
+	optinode "github.com/celestiaorg/rollmint/node"
+	rpcclient "github.com/celestiaorg/rollmint/rpc/client"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/node"
 	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 
@@ -55,7 +55,7 @@ func startInProcess(cfg Config, val *Validator) error {
 	if err != nil {
 		return err
 	}
-	// keys in optimint format
+	// keys in rollmint format
 	p2pKey, err := opticonv.GetNodeKey(nodeKey)
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func startInProcess(cfg Config, val *Validator) error {
 	app := cfg.AppConstructor(*val)
 
 	genDocProvider := node.DefaultGenesisDocProviderFunc(tmCfg)
-	// node key in optimint format
+	// node key in rollmint format
 
 	genesis, err := genDocProvider()
 	if err != nil {
@@ -92,7 +92,7 @@ func startInProcess(cfg Config, val *Validator) error {
 		nodeConfig,
 		p2pKey,
 		signingKey,
-		proxy.NewLocalClientCreator(app),
+		abcicli.NewLocalClient(nil, app),
 		genesis,
 		logger,
 	)

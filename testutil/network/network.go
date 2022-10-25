@@ -53,7 +53,7 @@ import (
 	ethermint "github.com/tharsis/ethermint/types"
 	evmtypes "github.com/tharsis/ethermint/x/evm/types"
 
-	optinode "github.com/celestiaorg/optimint/node"
+	optinode "github.com/celestiaorg/rollmint/node"
 
 	"github.com/tharsis/ethermint/app"
 )

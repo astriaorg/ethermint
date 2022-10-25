@@ -21,11 +21,11 @@ import (
 
 	"google.golang.org/grpc"
 
+	abcicli "github.com/tendermint/tendermint/abci/client"
 	abciserver "github.com/tendermint/tendermint/abci/server"
 	tcmd "github.com/tendermint/tendermint/cmd/tendermint/commands"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/node"
-	"github.com/tendermint/tendermint/proxy"
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/cosmos/cosmos-sdk/server/rosetta"
@@ -45,10 +45,10 @@ import (
 	"github.com/tharsis/ethermint/server/config"
 	srvflags "github.com/tharsis/ethermint/server/flags"
 
-	opticonf "github.com/celestiaorg/optimint/config"
-	opticonv "github.com/celestiaorg/optimint/conv"
-	optinode "github.com/celestiaorg/optimint/node"
-	optirpc "github.com/celestiaorg/optimint/rpc"
+	opticonf "github.com/celestiaorg/rollmint/config"
+	opticonv "github.com/celestiaorg/rollmint/conv"
+	optinode "github.com/celestiaorg/rollmint/node"
+	optirpc "github.com/celestiaorg/rollmint/rpc"
 )
 
 // StartCmd runs the service passed in, either stand-alone or in-process with
@@ -306,7 +306,7 @@ func startInProcess(ctx *server.Context, clientCtx client.Context, appCreator ty
 	if err != nil {
 		return err
 	}
-	// keys in optimint format
+	// keys in rollmint format
 	p2pKey, err := opticonv.GetNodeKey(nodeKey)
 	if err != nil {
 		return err
@@ -336,7 +336,7 @@ func startInProcess(ctx *server.Context, clientCtx client.Context, appCreator ty
 		nodeConfig,
 		p2pKey,
 		signingKey,
-		proxy.NewLocalClientCreator(app),
+		abcicli.NewLocalClient(nil, app),
 		genesis,
 		ctx.Logger,
 	)

@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/evmos/ethermint/rpc/types"
 	rpctypes "github.com/evmos/ethermint/rpc/types"
 	evmtypes "github.com/evmos/ethermint/x/evm/types"
 	"github.com/pkg/errors"
@@ -371,9 +370,9 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		b.logger.Debug("failed to query BlockBloom", "height", block.Height, "error", err.Error())
 	}
 
-	ctx := types.ContextWithHeight(block.Height)
+	ctx := rpctypes.ContextWithHeight(block.Height)
 
-	gasLimit, err := types.BlockMaxGasFromConsensusParams(ctx, b.clientCtx, block.Height)
+	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(ctx, b.clientCtx, block.Height)
 	if err != nil {
 		b.logger.Error("failed to query consensus params", "error", err.Error())
 	}
@@ -407,7 +406,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		hasher := trie.NewStackTrie(nil)
 		transactionsRoot = ethtypes.DeriveSha(ethtypes.Transactions(ethTxs), hasher)
 	}
-	formattedBlock := types.FormatBlock(block.Header, block.Size(), gasLimit, new(big.Int).SetUint64(gasUsed), transactionsRoot, bloom, baseFee)
+	formattedBlock := rpctypes.FormatBlock(block.Header, block.Size(), gasLimit, new(big.Int).SetUint64(gasUsed), transactionsRoot, bloom, baseFee)
 
 	blockJson, err := json.Marshal(formattedBlock)
 	if err != nil {
@@ -430,7 +429,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		}
 
 		tx := ethMsg.AsTransaction()
-		rpcTx, err := types.NewRPCTransaction(
+		rpcTx, err := rpctypes.NewRPCTransaction(
 			tx,
 			ethHash,
 			uint64(block.Height),

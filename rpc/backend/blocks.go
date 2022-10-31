@@ -444,106 +444,10 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		ethRPCTxs = append(ethRPCTxs, rpcTx)
 	}
 	formattedBlock["hash"] = ethHash
-	// formattedBlock["transactionsRoot"] = transactionsRoot
+	formattedBlock["transactionsRoot"] = transactionsRoot
 	formattedBlock["transactions"] = ethRPCTxs
 	return formattedBlock, nil
 }
-
-/*
-// RPCBlockFromTendermintBlock returns a JSON-RPC compatible Ethereum block from a
-// given Tendermint block and its block result.
-func (b *Backend) RPCBlockFromTendermintBlock(
-	resBlock *tmrpctypes.ResultBlock,
-	blockRes *tmrpctypes.ResultBlockResults,
-	fullTx bool,
-) (map[string]interface{}, error) {
-	ethRPCTxs := []interface{}{}
-	block := resBlock.Block
-
-	baseFee, err := b.BaseFee(blockRes)
-	if err != nil {
-		// handle the error for pruned node.
-		b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
-	}
-
-	msgs := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
-	for txIndex, ethMsg := range msgs {
-		if !fullTx {
-			hash := common.HexToHash(ethMsg.Hash)
-			ethRPCTxs = append(ethRPCTxs, hash)
-			continue
-		}
-
-		tx := ethMsg.AsTransaction()
-		rpcTx, err := rpctypes.NewRPCTransaction(
-			tx,
-			common.BytesToHash(block.Hash()),
-			uint64(block.Height),
-			uint64(txIndex),
-			baseFee,
-		)
-		if err != nil {
-			b.logger.Debug("NewTransactionFromData for receipt failed", "hash", tx.Hash().Hex(), "error", err.Error())
-			continue
-		}
-		ethRPCTxs = append(ethRPCTxs, rpcTx)
-	}
-
-	bloom, err := b.BlockBloom(blockRes)
-	if err != nil {
-		b.logger.Debug("failed to query BlockBloom", "height", block.Height, "error", err.Error())
-	}
-
-	req := &evmtypes.QueryValidatorAccountRequest{
-		ConsAddress: sdk.ConsAddress(block.Header.ProposerAddress).String(),
-	}
-
-	var validatorAccAddr sdk.AccAddress
-
-	ctx := rpctypes.ContextWithHeight(block.Height)
-	res, err := b.queryClient.ValidatorAccount(ctx, req)
-	if err != nil {
-		b.logger.Debug(
-			"failed to query validator operator address",
-			"height", block.Height,
-			"cons-address", req.ConsAddress,
-			"error", err.Error(),
-		)
-		// use zero address as the validator operator address
-		validatorAccAddr = sdk.AccAddress(common.Address{}.Bytes())
-	} else {
-		validatorAccAddr, err = sdk.AccAddressFromBech32(res.AccountAddress)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	validatorAddr := common.BytesToAddress(validatorAccAddr)
-
-	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(ctx, b.clientCtx, block.Height)
-	if err != nil {
-		b.logger.Error("failed to query consensus params", "error", err.Error())
-	}
-
-	gasUsed := uint64(0)
-
-	for _, txsResult := range blockRes.TxsResults {
-		// workaround for cosmos-sdk bug. https://github.com/cosmos/cosmos-sdk/issues/10832
-		if ShouldIgnoreGasUsed(txsResult) {
-			// block gas limit has exceeded, other txs must have failed with same reason.
-			break
-		}
-		gasUsed += uint64(txsResult.GetGasUsed())
-	}
-
-	formattedBlock := rpctypes.FormatBlock(
-		block.Header, block.Size(),
-		gasLimit, new(big.Int).SetUint64(gasUsed),
-		ethRPCTxs, bloom, validatorAddr, baseFee,
-	)
-	return formattedBlock, nil
-}
-*/
 
 // EthBlockByNumber returns the Ethereum Block identified by number.
 func (b *Backend) EthBlockByNumber(blockNum rpctypes.BlockNumber) (*ethtypes.Block, error) {

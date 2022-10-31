@@ -5,6 +5,8 @@ const (
 	EventTypeEthereumTx = TypeMsgEthereumTx
 	EventTypeBlockBloom = "block_bloom"
 	EventTypeTxLog      = "tx_log"
+	EventTypeTxRoot     = "tx_root"
+	EventTypeGasLimit   = "gas_limit"
 
 	AttributeKeyContractAddress = "contract"
 	AttributeKeyRecipient       = "recipient"
@@ -18,6 +20,8 @@ const (
 	AttributeKeyEthereumTxFailed = "ethereumTxFailed"
 	AttributeValueCategory       = ModuleName
 	AttributeKeyEthereumBloom    = "bloom"
+	AttributeKeyEthereumTxRoot   = "ethTxRoot"
+	AttributeKeyEthereumGasLimit = "ethGasLimit"
 
 	MetricKeyTransitionDB = "transition_db"
 	MetricKeyStaticCall   = "static_call"

@@ -154,6 +154,12 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	}
 	cumulativeGasUsed += res.CumulativeGasUsed
 
+	ethBlock, err := b.RPCBlockFromTendermintBlock(resBlock, blockRes, true)
+	if err != nil {
+		b.logger.Debug("ethBlock not found", "height", res.Height, "error", err.Error())
+		return nil, nil
+	}
+
 	var status hexutil.Uint
 	if res.Failed {
 		status = hexutil.Uint(ethtypes.ReceiptStatusFailed)
@@ -207,7 +213,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 
 		// Inclusion information: These fields provide information about the inclusion of the
 		// transaction corresponding to this receipt.
-		"blockHash":        common.BytesToHash(resBlock.Block.Header.Hash()).Hex(),
+		"blockHash":        ethBlock["hash"],
 		"blockNumber":      hexutil.Uint64(res.Height),
 		"transactionIndex": hexutil.Uint64(res.EthTxIndex),
 

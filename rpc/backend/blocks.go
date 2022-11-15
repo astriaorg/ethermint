@@ -355,9 +355,10 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 
 	// TODO(jbowen93): Base Fee shouldn't be hardcoded to 0
 	baseFee := big.NewInt(0)
-	// baseFee, err := b.BaseFee(block.Height)
+	// baseFee, err := b.BaseFee(blockRes)
 	// if err != nil {
-	// 	return nil, err
+	// 	// handle the error for pruned node.
+	// 	b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
 	// }
 
 	resBlockResult, err := b.clientCtx.Client.BlockResults(b.ctx, &block.Height)
@@ -406,14 +407,15 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		hasher := trie.NewStackTrie(nil)
 		transactionsRoot = ethtypes.DeriveSha(ethtypes.Transactions(ethTxs), hasher)
 	}
+	// TODO: Don't convert to JSON and then back
 	formattedBlock := rpctypes.FormatBlock(block.Header, block.Size(), gasLimit, new(big.Int).SetUint64(gasUsed), transactionsRoot, bloom, baseFee)
 
-	blockJson, err := json.Marshal(formattedBlock)
+	blockJSON, err := json.Marshal(formattedBlock)
 	if err != nil {
 		return nil, err
 	}
 	var ethHeader ethtypes.Header
-	err = json.Unmarshal(blockJson, &ethHeader)
+	err = json.Unmarshal(blockJSON, &ethHeader)
 	if err != nil {
 		return nil, err
 	}

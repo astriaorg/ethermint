@@ -99,7 +99,6 @@ func FormatBlock(
 	gasUsed *big.Int, txRoot common.Hash, bloom ethtypes.Bloom,
 	baseFee *big.Int,
 ) map[string]interface{} {
-
 	result := map[string]interface{}{
 		"number":           hexutil.Uint64(header.Height),
 		"tm_hash":          hexutil.Bytes(header.Hash()),

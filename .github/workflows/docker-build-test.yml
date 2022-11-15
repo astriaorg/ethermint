@@ -3,39 +3,47 @@ name: docker-build-test
 on:
   push:
     branches:
-      - main
+      - eth-hashes
   pull_request:
-  release:
-    types: [published]
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  TAG_PREFIX: eth-hashes-
 
 jobs:
   build:
-    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: "ubuntu-latest"
     permissions:
       contents: write 
       packages: write 
     steps:
       - name: "Checkout source code"
-        uses: "actions/checkout@v2"
+        uses: "actions/checkout@v3"
+        with:
+          ref: eth-hashes
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.17
+          go-version: 1.18
+      - name: Clone rollmint repo
+        uses: actions/checkout@v3
+        with:
+          repository: astriaorg/rollmint
+          ref: eth-hashes
+          path: rollmint
+      - name: Move Stuff and Tidy
+        run: |
+          go mod edit -replace=github.com/celestiaorg/rollmint=./rollmint
+          go mod tidy -compat=1.18 -e
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v3
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+            type=sha,prefix=${{ env.TAG_PREFIX }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to GHCR
@@ -47,43 +55,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
-          platforms: linux/amd64, linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           file: docker/Dockerfile
-
-  test:
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Clone repo
-      uses: actions/checkout@v2
-    - name: Clone ephemeral-cluster repo
-      uses: actions/checkout@v2
-      with:
-        repository: astriaorg/ephemeral-cluster
-        path: ephemeral-cluster
-        ref: main
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.17
-    - name: "Setup Cluster"
-      run: |
-        export ETHERMINT_IMAGE_TAG=sha-$(git rev-parse --short "$GITHUB_SHA")
-        echo $ETHERMINT_IMAGE_TAG
-        cd ephemeral-cluster
-        scripts/minimal-ethermint.sh
-    - name: "Test Cluster"
-      run: | 
-        docker ps -a
-        echo "------------- docker logs core0 -------------"
-        docker logs core0
-        echo "------------- docker logs dalc0 -------------"
-        docker logs dalc0
-        echo "------------- docker logs ethermint0 -------------"
-        docker logs ethermint0
-        cd /home/runner/work/ethermint/ethermint
-        echo "------------- go test ./tests/rpc/... -------------"
-        MODE=rpc HOST=http://127.0.0.1:8545 go test ./tests/rpc/... -v

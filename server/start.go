@@ -381,7 +381,6 @@ func startInProcess(ctx *server.Context, clientCtx client.Context, appCreator ty
 		}
 		logger.Info("Bye!")
 	}()
-	
 
 	// Add the tx service to the gRPC router. We only need to register this
 	// service if API or gRPC or JSONRPC is enabled, and avoid doing so in the general

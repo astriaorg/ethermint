@@ -2,11 +2,11 @@ package backend
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -345,23 +345,84 @@ func (b *Backend) BlockBloom(blockRes *tmrpctypes.ResultBlockResults) (ethtypes.
 	return ethtypes.Bloom{}, errors.New("block bloom event is not found")
 }
 
-// RPCBlockFromTendermintBlock returns a JSON-RPC compatible Ethereum block from a
-// given Tendermint block and its block result.
 func (b *Backend) RPCBlockFromTendermintBlock(
 	resBlock *tmrpctypes.ResultBlock,
 	blockRes *tmrpctypes.ResultBlockResults,
 	fullTx bool,
 ) (map[string]interface{}, error) {
-	ethRPCTxs := []interface{}{}
 	block := resBlock.Block
+	b.logger.Info("EthBlockFromTendermint", "block.DataHash", block.DataHash)
 
-	baseFee, err := b.BaseFee(blockRes)
+	// TODO(jbowen93): Base Fee shouldn't be hardcoded to 0
+	baseFee := big.NewInt(0)
+	// baseFee, err := b.BaseFee(blockRes)
+	// if err != nil {
+	// 	// handle the error for pruned node.
+	// 	b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
+	// }
+
+	resBlockResult, err := b.clientCtx.Client.BlockResults(b.ctx, &block.Height)
 	if err != nil {
-		// handle the error for pruned node.
-		b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
+		return nil, err
 	}
 
-	msgs := b.EthMsgsFromTendermintBlock(resBlock, blockRes)
+	bloom, err := b.BlockBloom(blockRes)
+	if err != nil {
+		b.logger.Debug("failed to query BlockBloom", "height", block.Height, "error", err.Error())
+	}
+
+	ctx := rpctypes.ContextWithHeight(block.Height)
+
+	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(ctx, b.clientCtx, block.Height)
+	if err != nil {
+		b.logger.Error("failed to query consensus params", "error", err.Error())
+	}
+
+	gasUsed := uint64(0)
+
+	for _, txsResult := range resBlockResult.TxsResults {
+		// workaround for cosmos-sdk bug. https://github.com/cosmos/cosmos-sdk/issues/10832
+		if ShouldIgnoreGasUsed(txsResult) {
+			// block gas limit has exceeded, other txs must have failed with same reason.
+			break
+		}
+		gasUsed += uint64(txsResult.GetGasUsed())
+	}
+
+	msgs := b.EthMsgsFromTendermintBlock(resBlock, resBlockResult)
+	ethTxs := []*ethtypes.Transaction{}
+	for _, ethMsg := range msgs {
+		tx := ethMsg.AsTransaction()
+		ethTxs = append(ethTxs, tx)
+	}
+	JSONtxs, err := json.MarshalIndent(ethTxs, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("EVM Backend txs: %s\n", string(JSONtxs))
+	var transactionsRoot common.Hash
+	if len(msgs) == 0 {
+		transactionsRoot = ethtypes.EmptyRootHash
+	} else {
+		hasher := trie.NewStackTrie(nil)
+		transactionsRoot = ethtypes.DeriveSha(ethtypes.Transactions(ethTxs), hasher)
+	}
+	// TODO: Don't convert to JSON and then back
+	formattedBlock := rpctypes.FormatBlock(block.Header, block.Size(), gasLimit, new(big.Int).SetUint64(gasUsed), transactionsRoot, bloom, baseFee)
+
+	blockJSON, err := json.Marshal(formattedBlock)
+	if err != nil {
+		return nil, err
+	}
+	var ethHeader ethtypes.Header
+	err = json.Unmarshal(blockJSON, &ethHeader)
+	if err != nil {
+		return nil, err
+	}
+	b.logger.Info("ethHeader", "ethHeader", ethHeader)
+	ethHash := ethHeader.Hash()
+	b.logger.Info("ethHash", "ethHash", ethHash)
+	ethRPCTxs := []interface{}{}
 	for txIndex, ethMsg := range msgs {
 		if !fullTx {
 			hash := common.HexToHash(ethMsg.Hash)
@@ -372,7 +433,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		tx := ethMsg.AsTransaction()
 		rpcTx, err := rpctypes.NewRPCTransaction(
 			tx,
-			common.BytesToHash(block.Hash()),
+			ethHash,
 			uint64(block.Height),
 			uint64(txIndex),
 			baseFee,
@@ -383,59 +444,9 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		}
 		ethRPCTxs = append(ethRPCTxs, rpcTx)
 	}
-
-	bloom, err := b.BlockBloom(blockRes)
-	if err != nil {
-		b.logger.Debug("failed to query BlockBloom", "height", block.Height, "error", err.Error())
-	}
-
-	req := &evmtypes.QueryValidatorAccountRequest{
-		ConsAddress: sdk.ConsAddress(block.Header.ProposerAddress).String(),
-	}
-
-	var validatorAccAddr sdk.AccAddress
-
-	ctx := rpctypes.ContextWithHeight(block.Height)
-	res, err := b.queryClient.ValidatorAccount(ctx, req)
-	if err != nil {
-		b.logger.Debug(
-			"failed to query validator operator address",
-			"height", block.Height,
-			"cons-address", req.ConsAddress,
-			"error", err.Error(),
-		)
-		// use zero address as the validator operator address
-		validatorAccAddr = sdk.AccAddress(common.Address{}.Bytes())
-	} else {
-		validatorAccAddr, err = sdk.AccAddressFromBech32(res.AccountAddress)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	validatorAddr := common.BytesToAddress(validatorAccAddr)
-
-	gasLimit, err := rpctypes.BlockMaxGasFromConsensusParams(ctx, b.clientCtx, block.Height)
-	if err != nil {
-		b.logger.Error("failed to query consensus params", "error", err.Error())
-	}
-
-	gasUsed := uint64(0)
-
-	for _, txsResult := range blockRes.TxsResults {
-		// workaround for cosmos-sdk bug. https://github.com/cosmos/cosmos-sdk/issues/10832
-		if ShouldIgnoreGasUsed(txsResult) {
-			// block gas limit has exceeded, other txs must have failed with same reason.
-			break
-		}
-		gasUsed += uint64(txsResult.GetGasUsed())
-	}
-
-	formattedBlock := rpctypes.FormatBlock(
-		block.Header, block.Size(),
-		gasLimit, new(big.Int).SetUint64(gasUsed),
-		ethRPCTxs, bloom, validatorAddr, baseFee,
-	)
+	formattedBlock["hash"] = ethHash
+	formattedBlock["transactionsRoot"] = transactionsRoot
+	formattedBlock["transactions"] = ethRPCTxs
 	return formattedBlock, nil
 }
 

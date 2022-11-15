@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	abcicli "github.com/tendermint/tendermint/abci/client"
 	"github.com/ethereum/go-ethereum/ethclient"
+	abcicli "github.com/tendermint/tendermint/abci/client"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	"github.com/tendermint/tendermint/node"
 	"github.com/tendermint/tendermint/p2p"

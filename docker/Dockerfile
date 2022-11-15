@@ -20,6 +20,7 @@ RUN make build
 FROM debian
 
 # Install ca-certificates
+RUN add-apt-repository universe
 RUN apt-get update
 RUN apt-get install jq -y
 

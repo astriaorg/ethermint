@@ -353,13 +353,12 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 	block := resBlock.Block
 	b.logger.Info("EthBlockFromTendermint", "block.DataHash", block.DataHash)
 
-	// TODO(jbowen93): Base Fee shouldn't be hardcoded to 0
-	baseFee := big.NewInt(0)
-	// baseFee, err := b.BaseFee(blockRes)
-	// if err != nil {
-	// 	// handle the error for pruned node.
-	// 	b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
-	// }
+	// baseFee := big.NewInt(0)
+	baseFee, err := b.BaseFee(blockRes)
+	if err != nil {
+		// handle the error for pruned node.
+		b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
+	}
 
 	resBlockResult, err := b.clientCtx.Client.BlockResults(b.ctx, &block.Height)
 	if err != nil {
@@ -423,10 +422,23 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 	ethHash := ethHeader.Hash()
 	b.logger.Info("ethHash", "ethHash", ethHash)
 	ethRPCTxs := []interface{}{}
+	var receipts []*ethtypes.Receipt
 	for txIndex, ethMsg := range msgs {
 		if !fullTx {
 			hash := common.HexToHash(ethMsg.Hash)
 			ethRPCTxs = append(ethRPCTxs, hash)
+			receiptMap, err := b.GetTransactionReceiptTendermintHash(hash)
+			if err != nil {
+				b.logger.Debug("Could not find transaction receipt for", ethMsg.Hash)
+				continue
+			}
+			receiptJSON, err := json.Marshal(receiptMap)
+			var receipt *ethtypes.Receipt
+			err = json.Unmarshal(receiptJSON, receipt)
+			if err != nil {
+				b.logger.Debug("Could not get receipt into correct format", receiptMap)
+			}
+			receipts = append(receipts, receipt)
 			continue
 		}
 
@@ -443,6 +455,10 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 			continue
 		}
 		ethRPCTxs = append(ethRPCTxs, rpcTx)
+	}
+	if len(receipts) != 0 {
+		hasher := trie.NewStackTrie(nil)
+		formattedBlock["receiptsRoot"] = ethtypes.DeriveSha(ethtypes.Receipts(receipts), hasher)
 	}
 	formattedBlock["hash"] = ethHash
 	formattedBlock["transactionsRoot"] = transactionsRoot

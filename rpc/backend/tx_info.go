@@ -119,6 +119,34 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	hexTx := hash.Hex()
 	b.logger.Debug("eth_getTransactionReceipt", "hash", hexTx)
 
+	receipt, err := b.GetTransactionReceiptTendermintHash(hash)
+	if receipt == nil || err != nil  {
+		return receipt, err
+	}
+	res, _ := b.GetTxByEthHash(hash)
+	resBlock, _ := b.TendermintBlockByNumber(rpctypes.BlockNumber(res.Height))
+	blockRes, _ := b.TendermintBlockResultByNumber(&res.Height)
+
+	ethBlock, err := b.RPCBlockFromTendermintBlock(resBlock, blockRes, true)
+	if err != nil {
+		b.logger.Debug("ethBlock not found", "height", res.Height, "error", err.Error())
+		return nil, nil
+	}
+
+	for _, l := range(receipt["logs"].([]*ethtypes.Log)) {
+		l.BlockHash = ethBlock["hash"].(common.Hash)
+	}
+
+	receipt["blockHash"] = ethBlock["hash"]
+
+	return receipt, nil
+}
+
+// GetTransactionReceipt returns the transaction receipt identified by hash.
+func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[string]interface{}, error) {
+	hexTx := hash.Hex()
+	b.logger.Debug("eth_getTransactionReceipt", "hash", hexTx)
+
 	res, err := b.GetTxByEthHash(hash)
 	if err != nil {
 		b.logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
@@ -153,12 +181,6 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 		cumulativeGasUsed += uint64(txResult.GasUsed)
 	}
 	cumulativeGasUsed += res.CumulativeGasUsed
-
-	ethBlock, err := b.RPCBlockFromTendermintBlock(resBlock, blockRes, true)
-	if err != nil {
-		b.logger.Debug("ethBlock not found", "height", res.Height, "error", err.Error())
-		return nil, nil
-	}
 
 	var status hexutil.Uint
 	if res.Failed {
@@ -213,7 +235,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 
 		// Inclusion information: These fields provide information about the inclusion of the
 		// transaction corresponding to this receipt.
-		"blockHash":        ethBlock["hash"],
+		"blockHash":        common.BytesToHash(resBlock.Block.Header.Hash()).Hex(),
 		"blockNumber":      hexutil.Uint64(res.Height),
 		"transactionIndex": hexutil.Uint64(res.EthTxIndex),
 

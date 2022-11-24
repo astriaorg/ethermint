@@ -44,6 +44,22 @@ func (k *Keeper) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) []abci.Vali
 	fmt.Printf("End Block TxRoot: %s\n", txRoot)
 	k.EmitTxRootEvent(ctx, txRoot)
 
+	ethReceipts := k.GetReceipts(ctx)
+	JSONReceipts, err := json.MarshalIndent(ethReceipts, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("End Block Receipts: %s\n", string(JSONReceipts))
+	var receiptRoot common.Hash
+	if len(ethReceipts) == 0 {
+		receiptRoot = ethtypes.EmptyRootHash
+	} else {
+		hasher := trie.NewStackTrie(nil)
+		receiptRoot = ethtypes.DeriveSha(ethtypes.Receipts(ethTxs), hasher)	
+	}
+	fmt.Printf("End Block receiptRoot: %s\n", txRoot)
+	k.EmitReceiptRootEvent(ctx, receiptRoot)
+
 	gasLimit := ctx.BlockGasMeter().Limit()
 	fmt.Printf("End Block GasLimit: %d\nHex: %x\n", gasLimit, gasLimit)
 	k.EmitGasLimitEvent(ctx, gasLimit)

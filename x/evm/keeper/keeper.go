@@ -197,6 +197,8 @@ func (k Keeper) SetTx(ctx sdk.Context, index uint, tx *ethtypes.Transaction) {
 	store.Set(append(types.KeyPrefixTransientTransaction, []byte(strconv.Itoa(int(index)))...), data)
 }
 
+
+
 func (k Keeper) GetTx(ctx sdk.Context, index uint) *ethtypes.Transaction {
 	store := ctx.TransientStore(k.transientKey)
 	txData := store.Get(append(types.KeyPrefixTransientTransaction, []byte(strconv.Itoa(int(index)))...))
@@ -222,12 +224,56 @@ func (k Keeper) GetTxs(ctx sdk.Context) []*ethtypes.Transaction {
 	return ethereumTxs
 }
 
-// EmitBlockBloomEvent emit block bloom events
+func (k Keeper) SetReceipt(ctx sdk.Context, index uint, receipt *ethtypes.Receipt) {
+	store := ctx.TransientStore(k.transientKey)
+	data, err := receipt.MarshalBinary()
+	if err != nil {
+		panic(err)
+	}
+	store.Set(append(types.KeyPrefixTransientReceipt, []byte(strconv.Itoa(int(index)))...), data)
+}
+
+func (k Keeper) GetReceipt(ctx sdk.Context, index uint) *ethtypes.Receipt {
+	store := ctx.TransientStore(k.transientKey)
+	txData := store.Get(append(types.KeyPrefixTransientReceipt, []byte(strconv.Itoa(int(index)))...))
+	parsedReceipt := &ethtypes.Receipt{}
+	if err := parsedReceipt.UnmarshalBinary(txData); err != nil {
+		panic(err)
+	}
+	return parsedReceipt
+}
+
+func (k Keeper) GetReceipts(ctx sdk.Context) []*ethtypes.Receipt {
+	store := ctx.TransientStore(k.transientKey)
+	iterator := sdk.KVStorePrefixIterator(store, types.KeyPrefixTransientReceipt)
+	ethereumReceipts := []*ethtypes.Receipt{}
+	defer iterator.Close()
+	for ; iterator.Valid(); iterator.Next() {
+		parsedReceipt := &ethtypes.Receipt{}
+		if err := parsedReceipt.UnmarshalBinary(iterator.Value()); err != nil {
+			panic(err)
+		}
+		ethereumReceipts = append(ethereumReceipts, parsedTx)
+	}
+	return ethereumReceipts
+}
+
+// EmitTxRootEvent emit transaction root events
 func (k Keeper) EmitTxRootEvent(ctx sdk.Context, txRoot common.Hash) {
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
 			types.EventTypeTxRoot,
 			sdk.NewAttribute(types.AttributeKeyEthereumTxRoot, txRoot.String()),
+		),
+	)
+}
+
+// EmitReceiptRootEvent emit receipt root events
+func (k Keeper) EmitReceiptHashEvent(ctx sdk.Context, receiptRoot common.Hash) {
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent(
+			types.EventTypeReceiptRoot,
+			sdk.NewAttribute(types.AttributeKeyEthereumReceiptRoot, receiptRoot.String()),
 		),
 	)
 }

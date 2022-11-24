@@ -353,12 +353,12 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 	block := resBlock.Block
 	b.logger.Info("EthBlockFromTendermint", "block.DataHash", block.DataHash)
 
-	// baseFee := big.NewInt(0)
-	baseFee, err := b.BaseFee(blockRes)
-	if err != nil {
-		// handle the error for pruned node.
-		b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
-	}
+	baseFee := big.NewInt(0)
+	// baseFee, err := b.BaseFee(blockRes)
+	// if err != nil {
+	// 	// handle the error for pruned node.
+	// 	b.logger.Error("failed to fetch Base Fee from prunned block. Check node prunning configuration", "height", block.Height, "error", err)
+	// }
 
 	resBlockResult, err := b.clientCtx.Client.BlockResults(b.ctx, &block.Height)
 	if err != nil {
@@ -422,23 +422,17 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 	ethHash := ethHeader.Hash()
 	b.logger.Info("ethHash", "ethHash", ethHash)
 	ethRPCTxs := []interface{}{}
-	var receipts []*ethtypes.Receipt
+	var receipts []map[string]interface{}
 	for txIndex, ethMsg := range msgs {
-		if !fullTx {
-			hash := common.HexToHash(ethMsg.Hash)
-			ethRPCTxs = append(ethRPCTxs, hash)
-			receiptMap, err := b.GetTransactionReceiptTendermintHash(hash)
-			if err != nil {
-				b.logger.Debug("Could not find transaction receipt for", ethMsg.Hash)
-				continue
-			}
-			receiptJSON, err := json.Marshal(receiptMap)
-			var receipt *ethtypes.Receipt
-			err = json.Unmarshal(receiptJSON, receipt)
-			if err != nil {
-				b.logger.Debug("Could not get receipt into correct format", receiptMap)
-			}
+		hash := common.HexToHash(ethMsg.Hash)
+		receipt, err := b.GetTransactionReceiptTendermintHash(hash)
+		if err != nil {
+			b.logger.Debug("Could not find transaction receipt for", ethMsg.Hash)
+		} else {
 			receipts = append(receipts, receipt)
+		}
+		if !fullTx {
+			ethRPCTxs = append(ethRPCTxs, hash)
 			continue
 		}
 
@@ -457,8 +451,12 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		ethRPCTxs = append(ethRPCTxs, rpcTx)
 	}
 	if len(receipts) != 0 {
+		jsonReceipts, _ := json.MarshalIndent(receipts, "", "  ")
+		fmt.Println(string(jsonReceipts))
+		var ethReceipts ethtypes.Receipts
+		json.Unmarshal(jsonReceipts, &ethReceipts)
 		hasher := trie.NewStackTrie(nil)
-		formattedBlock["receiptsRoot"] = ethtypes.DeriveSha(ethtypes.Receipts(receipts), hasher)
+		formattedBlock["receiptsRoot"] = ethtypes.DeriveSha(ethReceipts, hasher)
 	}
 	formattedBlock["hash"] = ethHash
 	formattedBlock["transactionsRoot"] = transactionsRoot

@@ -136,7 +136,6 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	for _, l := range(receipt["logs"].([]*ethtypes.Log)) {
 		l.BlockHash = ethBlock["hash"].(common.Hash)
 	}
-
 	receipt["blockHash"] = ethBlock["hash"]
 
 	return receipt, nil
@@ -145,7 +144,6 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 // GetTransactionReceipt returns the transaction receipt identified by hash.
 func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[string]interface{}, error) {
 	hexTx := hash.Hex()
-	b.logger.Debug("eth_getTransactionReceipt", "hash", hexTx)
 
 	res, err := b.GetTxByEthHash(hash)
 	if err != nil {
@@ -204,6 +202,9 @@ func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[str
 	if err != nil {
 		b.logger.Debug("failed to parse logs", "hash", hexTx, "error", err.Error())
 	}
+	if logs == nil {
+		logs = []*ethtypes.Log{}
+	}
 
 	if res.EthTxIndex == -1 {
 		// Fallback to find tx index by iterating all valid eth transactions
@@ -242,10 +243,6 @@ func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[str
 		// sender and receiver (contract or EOA) addreses
 		"from": from,
 		"to":   txData.GetTo(),
-	}
-
-	if logs == nil {
-		receipt["logs"] = [][]*ethtypes.Log{}
 	}
 
 	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation

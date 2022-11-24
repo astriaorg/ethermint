@@ -39,7 +39,7 @@ func (k *Keeper) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) []abci.Vali
 		txRoot = ethtypes.EmptyRootHash
 	} else {
 		hasher := trie.NewStackTrie(nil)
-		txRoot = ethtypes.DeriveSha(ethtypes.Transactions(ethTxs), hasher)
+		txRoot = ethtypes.DeriveSha(ethtypes.Transactions(ethTxs), hasher)	
 	}
 	fmt.Printf("End Block TxRoot: %s\n", txRoot)
 	k.EmitTxRootEvent(ctx, txRoot)

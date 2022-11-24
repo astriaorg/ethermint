@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
 	"math/big"
 
@@ -282,7 +284,8 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 			ctx.EventManager().EmitEvents(tmpCtx.EventManager().Events())
 		}
 	}
-
+	jsonReceipts, _ := json.MarshalIndent(receipt, "", "  ")
+	fmt.Printf("Receipt in state transtion: %s\n", jsonReceipts)
 	k.SetTx(ctx, txConfig.TxIndex, tx)
 	k.SetReceipt(ctx, txConfig.TxIndex, receipt)
 

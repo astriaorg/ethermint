@@ -456,7 +456,7 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		var ethReceipts ethtypes.Receipts
 		json.Unmarshal(jsonReceipts, &ethReceipts)
 		hasher := trie.NewStackTrie(nil)
-		formattedBlock["receiptsRoot"] = ethtypes.DeriveSha(ethReceipts, hasher)
+		formattedBlock["receiptsRoot"] = ethtypes.DeriveSha(ethtypes.Receipts(ethReceipts), hasher)
 	}
 	formattedBlock["hash"] = ethHash
 	formattedBlock["transactionsRoot"] = transactionsRoot

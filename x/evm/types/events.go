@@ -6,7 +6,7 @@ const (
 	EventTypeBlockBloom = "block_bloom"
 	EventTypeTxLog      = "tx_log"
 	EventTypeTxRoot     = "tx_root"
-	EventTypeReceiptHash = "receipt_root"
+	EventTypeReceiptHash = "receipt_hash"
 	EventTypeGasLimit   = "gas_limit"
 
 	AttributeKeyContractAddress = "contract"

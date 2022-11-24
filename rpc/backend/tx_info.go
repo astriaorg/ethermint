@@ -223,6 +223,8 @@ func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[str
 
 	receipt := map[string]interface{}{
 		// Consensus fields: These fields are defined by the Yellow Paper
+		// TODO(joroshiba): I believe this should fix our issues except it causes endless looping somehow
+		// "type":              txData.TxType(), 
 		"status":            status,
 		"cumulativeGasUsed": hexutil.Uint64(cumulativeGasUsed),
 		"logsBloom":         ethtypes.BytesToBloom(ethtypes.LogsBloom(logs)),

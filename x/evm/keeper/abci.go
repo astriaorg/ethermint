@@ -50,15 +50,15 @@ func (k *Keeper) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) []abci.Vali
 		panic(err)
 	}
 	fmt.Printf("End Block Receipts: %s\n", string(JSONReceipts))
-	var receiptRoot common.Hash
+	var receiptHash common.Hash
 	if len(ethReceipts) == 0 {
-		receiptRoot = ethtypes.EmptyRootHash
+		receiptHash = ethtypes.EmptyRootHash
 	} else {
 		hasher := trie.NewStackTrie(nil)
-		receiptRoot = ethtypes.DeriveSha(ethtypes.Receipts(ethTxs), hasher)	
+		receiptHash = ethtypes.DeriveSha(ethtypes.Receipts(ethReceipts), hasher)
 	}
-	fmt.Printf("End Block receiptRoot: %s\n", txRoot)
-	k.EmitReceiptRootEvent(ctx, receiptRoot)
+	fmt.Printf("End Block receiptHash: %s\n", receiptHash)
+	k.EmitReceiptHashEvent(ctx, receiptHash)
 
 	gasLimit := ctx.BlockGasMeter().Limit()
 	fmt.Printf("End Block GasLimit: %d\nHex: %x\n", gasLimit, gasLimit)

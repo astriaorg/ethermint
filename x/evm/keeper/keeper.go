@@ -253,7 +253,7 @@ func (k Keeper) GetReceipts(ctx sdk.Context) []*ethtypes.Receipt {
 		if err := parsedReceipt.UnmarshalBinary(iterator.Value()); err != nil {
 			panic(err)
 		}
-		ethereumReceipts = append(ethereumReceipts, parsedTx)
+		ethereumReceipts = append(ethereumReceipts, parsedReceipt)
 	}
 	return ethereumReceipts
 }
@@ -268,12 +268,12 @@ func (k Keeper) EmitTxRootEvent(ctx sdk.Context, txRoot common.Hash) {
 	)
 }
 
-// EmitReceiptRootEvent emit receipt root events
-func (k Keeper) EmitReceiptHashEvent(ctx sdk.Context, receiptRoot common.Hash) {
+// EmitReceiptHashEvent emit receipt root events
+func (k Keeper) EmitReceiptHashEvent(ctx sdk.Context, receiptHash common.Hash) {
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			types.EventTypeReceiptRoot,
-			sdk.NewAttribute(types.AttributeKeyEthereumReceiptRoot, receiptRoot.String()),
+			types.EventTypeReceiptHash,
+			sdk.NewAttribute(types.AttributeKeyEthereumReceiptHash, receiptHash.String()),
 		),
 	)
 }

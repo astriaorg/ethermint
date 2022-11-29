@@ -119,32 +119,6 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 	hexTx := hash.Hex()
 	b.logger.Debug("eth_getTransactionReceipt", "hash", hexTx)
 
-	receipt, err := b.GetTransactionReceiptTendermintHash(hash)
-	if receipt == nil || err != nil  {
-		return receipt, err
-	}
-	res, _ := b.GetTxByEthHash(hash)
-	resBlock, _ := b.TendermintBlockByNumber(rpctypes.BlockNumber(res.Height))
-	blockRes, _ := b.TendermintBlockResultByNumber(&res.Height)
-
-	ethBlock, err := b.RPCBlockFromTendermintBlock(resBlock, blockRes, true)
-	if err != nil {
-		b.logger.Debug("ethBlock not found", "height", res.Height, "error", err.Error())
-		return nil, nil
-	}
-
-	for _, l := range(receipt["logs"].([]*ethtypes.Log)) {
-		l.BlockHash = ethBlock["hash"].(common.Hash)
-	}
-	receipt["blockHash"] = ethBlock["hash"]
-
-	return receipt, nil
-}
-
-// GetTransactionReceipt returns the transaction receipt identified by hash.
-func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[string]interface{}, error) {
-	hexTx := hash.Hex()
-
 	res, err := b.GetTxByEthHash(hash)
 	if err != nil {
 		b.logger.Debug("tx not found", "hash", hexTx, "error", err.Error())
@@ -180,6 +154,12 @@ func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[str
 	}
 	cumulativeGasUsed += res.CumulativeGasUsed
 
+	ethBlock, err := b.RPCBlockFromTendermintBlock(resBlock, blockRes, true)
+	if err != nil {
+		b.logger.Debug("ethBlock not found", "height", res.Height, "error", err.Error())
+		return nil, nil
+	}
+
 	var status hexutil.Uint
 	if res.Failed {
 		status = hexutil.Uint(ethtypes.ReceiptStatusFailed)
@@ -205,6 +185,9 @@ func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[str
 	if logs == nil {
 		logs = []*ethtypes.Log{}
 	}
+	for _, l := range(logs) {
+		l.BlockHash = ethBlock["hash"].(common.Hash)
+	}
 
 	if res.EthTxIndex == -1 {
 		// Fallback to find tx index by iterating all valid eth transactions
@@ -223,8 +206,6 @@ func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[str
 
 	receipt := map[string]interface{}{
 		// Consensus fields: These fields are defined by the Yellow Paper
-		// TODO(joroshiba): I believe this should fix our issues except it causes endless looping somehow
-		// "type":              txData.TxType(), 
 		"status":            status,
 		"cumulativeGasUsed": hexutil.Uint64(cumulativeGasUsed),
 		"logsBloom":         ethtypes.BytesToBloom(ethtypes.LogsBloom(logs)),
@@ -238,7 +219,7 @@ func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[str
 
 		// Inclusion information: These fields provide information about the inclusion of the
 		// transaction corresponding to this receipt.
-		"blockHash":        common.BytesToHash(resBlock.Block.Header.Hash()).Hex(),
+		"blockHash":        ethBlock["hash"],
 		"blockNumber":      hexutil.Uint64(res.Height),
 		"transactionIndex": hexutil.Uint64(res.EthTxIndex),
 
@@ -260,6 +241,54 @@ func (b *Backend) GetTransactionReceiptTendermintHash(hash common.Hash) (map[str
 		} else {
 			receipt["effectiveGasPrice"] = hexutil.Big(*dynamicTx.EffectiveGasPrice(baseFee))
 		}
+	}
+
+	return receipt, nil
+}
+
+func (b *Backend) GetMinimalTransactionReceipt(ethMsg *evmtypes.MsgEthereumTx, blockRes *tmrpctypes.ResultBlockResults) (*ethtypes.Receipt, error) {
+	hash := common.HexToHash(ethMsg.Hash)
+
+	res, err := b.GetTxByEthHash(hash)
+	if err != nil {
+		b.logger.Debug("tx not found", "hash", hash, "error", err.Error())
+		return nil, nil
+	}
+
+	txData, err := evmtypes.UnpackTxData(ethMsg.Data)
+	if err != nil {
+		b.logger.Error("failed to unpack tx data", "error", err.Error())
+		return nil, err
+	}
+
+	cumulativeGasUsed := uint64(0)
+	for _, txResult := range blockRes.TxsResults[0:res.TxIndex] {
+		cumulativeGasUsed += uint64(txResult.GasUsed)
+	}
+	cumulativeGasUsed += res.CumulativeGasUsed
+
+	// parse tx logs from events
+	logs, err := TxLogsFromEvents(blockRes.TxsResults[res.TxIndex].Events, int(res.MsgIndex))
+	if err != nil {
+		b.logger.Debug("failed to parse logs", "hash", hash, "error", err.Error())
+	}
+	if logs == nil {
+		logs = []*ethtypes.Log{}
+	}
+
+	var status uint64
+	if res.Failed {
+		status = ethtypes.ReceiptStatusFailed
+	} else {
+		status = ethtypes.ReceiptStatusSuccessful
+	}
+
+	receipt := &ethtypes.Receipt{
+		Type:              uint8(txData.TxType()), 
+		Status:            status,
+		CumulativeGasUsed: cumulativeGasUsed,
+		Bloom:             ethtypes.BytesToBloom(ethtypes.LogsBloom(logs)),
+		Logs:              logs,
 	}
 
 	return receipt, nil

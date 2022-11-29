@@ -246,16 +246,16 @@ func (k Keeper) GetReceipt(ctx sdk.Context, index uint) *ethtypes.Receipt {
 func (k Keeper) GetReceipts(ctx sdk.Context) []*ethtypes.Receipt {
 	store := ctx.TransientStore(k.transientKey)
 	iterator := sdk.KVStorePrefixIterator(store, types.KeyPrefixTransientReceipt)
-	ethereumReceipts := []*ethtypes.Receipt{}
+	ethReceipts := []*ethtypes.Receipt{}
 	defer iterator.Close()
 	for ; iterator.Valid(); iterator.Next() {
 		parsedReceipt := &ethtypes.Receipt{}
 		if err := parsedReceipt.UnmarshalBinary(iterator.Value()); err != nil {
 			panic(err)
 		}
-		ethereumReceipts = append(ethereumReceipts, parsedReceipt)
+		ethReceipts = append(ethReceipts, parsedReceipt)
 	}
-	return ethereumReceipts
+	return ethReceipts
 }
 
 // EmitTxRootEvent emit transaction root events

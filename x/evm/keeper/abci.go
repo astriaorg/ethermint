@@ -8,7 +8,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -29,19 +28,11 @@ func (k *Keeper) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) []abci.Vali
 	k.EmitBlockBloomEvent(infCtx, bloom)
 
 	ethTxs := k.GetTxs(ctx)
-	JSONtxs, err := json.MarshalIndent(ethTxs, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("End Block Txs: %s\n", string(JSONtxs))
-	var txRoot common.Hash
-	if len(ethTxs) == 0 {
-		txRoot = ethtypes.EmptyRootHash
-	} else {
+	txRoot := ethtypes.EmptyRootHash
+	if len(ethTxs) != 0 {
 		hasher := trie.NewStackTrie(nil)
 		txRoot = ethtypes.DeriveSha(ethtypes.Transactions(ethTxs), hasher)	
 	}
-	fmt.Printf("End Block TxRoot: %s\n", txRoot)
 	k.EmitTxRootEvent(ctx, txRoot)
 
 	ethReceipts := k.GetReceipts(ctx)
@@ -50,10 +41,8 @@ func (k *Keeper) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) []abci.Vali
 		panic(err)
 	}
 	fmt.Printf("End Block Receipts: %s\n", string(JSONReceipts))
-	var receiptHash common.Hash
-	if len(ethReceipts) == 0 {
-		receiptHash = ethtypes.EmptyRootHash
-	} else {
+	receiptHash := ethtypes.EmptyRootHash
+	if len(ethReceipts) != 0 {
 		hasher := trie.NewStackTrie(nil)
 		receiptHash = ethtypes.DeriveSha(ethtypes.Receipts(ethReceipts), hasher)
 	}
@@ -61,7 +50,6 @@ func (k *Keeper) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) []abci.Vali
 	k.EmitReceiptHashEvent(ctx, receiptHash)
 
 	gasLimit := ctx.BlockGasMeter().Limit()
-	fmt.Printf("End Block GasLimit: %d\nHex: %x\n", gasLimit, gasLimit)
 	k.EmitGasLimitEvent(ctx, gasLimit)
 
 	return []abci.ValidatorUpdate{}

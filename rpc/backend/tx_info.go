@@ -206,6 +206,7 @@ func (b *Backend) GetTransactionReceipt(hash common.Hash) (map[string]interface{
 
 	receipt := map[string]interface{}{
 		// Consensus fields: These fields are defined by the Yellow Paper
+		"type":              hexutil.Uint(uint(txData.TxType())),
 		"status":            status,
 		"cumulativeGasUsed": hexutil.Uint64(cumulativeGasUsed),
 		"logsBloom":         ethtypes.BytesToBloom(ethtypes.LogsBloom(logs)),

@@ -441,8 +441,8 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 	b.logger.Info("ethHash", "ethHash", ethHash)
 	ethRPCTxs := []interface{}{}
 	for txIndex, ethMsg := range msgs {
-		hash := common.HexToHash(ethMsg.Hash)
 		if !fullTx {
+			hash := common.HexToHash(ethMsg.Hash)
 			ethRPCTxs = append(ethRPCTxs, hash)
 			continue
 		}
@@ -462,7 +462,6 @@ func (b *Backend) RPCBlockFromTendermintBlock(
 		ethRPCTxs = append(ethRPCTxs, rpcTx)
 	}
 	formattedBlock["hash"] = ethHash
-	formattedBlock["transactionsRoot"] = transactionsRoot
 	formattedBlock["transactions"] = ethRPCTxs
 	return formattedBlock, nil
 }

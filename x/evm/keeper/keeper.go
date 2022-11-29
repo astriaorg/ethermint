@@ -197,8 +197,6 @@ func (k Keeper) SetTx(ctx sdk.Context, index uint, tx *ethtypes.Transaction) {
 	store.Set(append(types.KeyPrefixTransientTransaction, []byte(strconv.Itoa(int(index)))...), data)
 }
 
-
-
 func (k Keeper) GetTx(ctx sdk.Context, index uint) *ethtypes.Transaction {
 	store := ctx.TransientStore(k.transientKey)
 	txData := store.Get(append(types.KeyPrefixTransientTransaction, []byte(strconv.Itoa(int(index)))...))
